@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
 
 class QuantizedPrunedConv2d(nn.Module):
     def __init__(self, pruned_conv_layer, n_bits=8):
@@ -171,3 +173,59 @@ def apply_sensitivity_based_quant(model, layer_sensitivities, first_ratio=0.6, n
         return module
 
     return replace_layers(model), layer_bit_dict
+
+def layer_sensitivities(net):
+    transform = transforms.Compose([
+        transforms.Resize(32),
+        transforms.ToTensor(),
+    ])
+    calibration_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+    calibration_loader = torch.utils.data.DataLoader(calibration_dataset, batch_size=64, shuffle=True)
+    
+    calibration_batches = 5
+    
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    net.to(device)
+    
+    criterion = nn.CrossEntropyLoss()
+    
+    layer_sensitivities = {}
+    channel_sensitivities = {}
+    
+    for i, (images, targets) in enumerate(calibration_loader):
+        if i >= calibration_batches:
+            break
+        images, targets = images.to(device), targets.to(device)
+        
+        net.zero_grad()
+        outputs = net(images)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        
+        for name, module in net.named_modules():
+            # ----- Conv2d -----
+            if isinstance(module, nn.Conv2d) and module.weight.grad is not None:
+                grad_abs = module.weight.grad.abs() 
+                channel_sens = grad_abs.view(module.out_channels, -1).mean(dim=1) 
+    
+            # ----- Linear -----
+            elif isinstance(module, nn.Linear) and module.weight.grad is not None:
+                grad_abs = module.weight.grad.abs() 
+                channel_sens = grad_abs.mean(dim=1) 
+    
+            else:
+                continue  # skip ones without weights
+    
+            # Accumulate
+            if name in layer_sensitivities:
+                layer_sensitivities[name] += channel_sens.detach().cpu()
+                
+            else:
+                layer_sensitivities[name] = channel_sens.detach().cpu()
+    
+    
+    for name in layer_sensitivities:
+        layer_sensitivities[name] /= calibration_batches
+    
+    layer_avg_sensitivities = {name: vals.mean().item() for name, vals in layer_sensitivities.items()}
+    return layer_avg_sensitivities
