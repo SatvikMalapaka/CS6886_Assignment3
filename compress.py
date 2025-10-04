@@ -3,15 +3,17 @@ from quantisation import *
 from model import MobileNetV2
 import argparse
 from utils import *
+from pathlib import Path
 
 def get_args():
-  parser = argparse.ArgumentParser(description="Training script")
+  parser = argparse.ArgumentParser(description="Compression script")
   parser.add_argument('--pr', type=float, default=0.4, help='Pruning Ratio')
   parser.add_argument('--finetune_epochs', type=int, default=10, help='Number of epochs for fine tuning')
   parser.add_argument('--n_bits_first', type=int, default=4, help='Number of bits for first half of quantisation')
   parser.add_argument('--n_bits_rest', type=int, default=8, help='Number of bits for second half of quantisation')
   parser.add_argument('--quant_ratio', type=float, default=0.6, help='Ratio of split between two bit types for quantisation')
   parser.add_argument('--n_bits_relu', type=int, default=8, help='Number of bits for activations')
+  parser.add_argument('--weights', type=Path, default=Path("mobilenetv2_cifar10_baseline.pth"), help='Path to pretrained weights')
   args = parser.parse_args()
   return args
 
@@ -23,7 +25,7 @@ if __name__ == '__main__':
   print("Using device:", device)
   net = MobileNetV2(num_classes=10)
   net = net.to(device)
-  checkpoint = torch.load("mobilenetv2_cifar10_baseline.pth", map_location=torch.device(device))
+  checkpoint = torch.load(args.weights, map_location=torch.device(device))
   net.load_state_dict(checkpoint)
   print("Loaded state.....")
   net = replace_conv_with_pruned(net, prune_ratio)
