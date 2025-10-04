@@ -76,3 +76,19 @@ def fine_tune(model, device, train_loader, epochs=10, learn_r=0.01):
         print(f"Epoch {epoch+1}/{epochs} | Loss={avg_loss:.4f} | Train Acc={train_acc:.2f}% | Test Acc={test_acc:.2f}%")
 
     return model
+
+def compute_sparsity(model):
+    total_params = 0
+    zero_params = 0
+
+    for module in model.modules():
+        if isinstance(module, PrunedConv2d):
+            W = module.weight.data
+            masked_W = W * module.mask  # apply pruning mask
+            total_params += masked_W.numel()
+            zero_params += (masked_W == 0).sum().item()
+
+    sparsity_ratio = zero_params / total_params if total_params > 0 else 0
+    print(f"Model sparsity: {sparsity_ratio*100:.2f}% "
+          f"({zero_params}/{total_params} weights pruned)")
+    return sparsity_ratio
