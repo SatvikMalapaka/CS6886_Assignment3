@@ -22,7 +22,7 @@ test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, trans
 train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-def train(net, epoch, train_loader, optimizer, criterion, device = device):
+def train(net, epoch, train_loader, optimizer, criterion, device):
     net.train()
     running_loss, correct, total = 0, 0, 0
     for inputs, targets in train_loader:
@@ -45,7 +45,7 @@ def train(net, epoch, train_loader, optimizer, criterion, device = device):
     return avg_loss, acc
 
 
-def test(net, test_loader, device = device, criterion = None, epoch=None):
+def test(net, test_loader, device, criterion = None, epoch=None):
     net.eval()
     test_loss, correct, total = 0, 0, 0
     with torch.no_grad():
