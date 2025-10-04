@@ -50,6 +50,8 @@ if __name__ == '__main__':
   
   device = 'cuda' if torch.cuda.is_available() else 'cpu'
   print("Using device:", device)
+  net = MobileNetV2(num_classes=10)
+  net.to(device)
   criterion = nn.CrossEntropyLoss()
   optimizer = optim.SGD(
     net.parameters(),
@@ -58,8 +60,7 @@ if __name__ == '__main__':
     weight_decay=4e-5
   )
 
-  net = MobileNetV2(num_classes=10)
-  net.to(device)
+  
   scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
   best_acc = 0
 
