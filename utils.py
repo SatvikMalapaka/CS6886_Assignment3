@@ -1,5 +1,8 @@
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
+import torch
+import torch.nn as nn
+import numpy as np
 
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
@@ -64,8 +67,6 @@ def test(net, test_loader, device = device, criterion = None, epoch=None):
     else:
       print(f"Test Acc: {acc:.2f}%")
     return avg_loss, acc
-
-import numpy as np
 
 def compute_model_size(model, bitwidth_map, include_mask=True, activation_bits=8):
     orig_weight_bits = 0
