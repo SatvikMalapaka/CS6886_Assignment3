@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from utils import *
 
 class PrunedConv2d(nn.Conv2d):
     def __init__(self, conv_layer, prune_ratio=0.4):
@@ -48,7 +49,7 @@ def replace_conv_with_pruned(model, prune_ratio=0.4):
     return model
 
 
-def fine_tune(model, device, train_loader, epochs=10, learn_r=0.01):
+def fine_tune(model, device, train_loader, test_loader, epochs=10, learn_r=0.01):
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learn_r, momentum=0.9, weight_decay=5e-4)
 
@@ -71,7 +72,7 @@ def fine_tune(model, device, train_loader, epochs=10, learn_r=0.01):
 
         train_acc = 100.0 * correct / total
         avg_loss = running_loss / total
-        _,test_acc = test(model)
+        _,test_acc = test(model, test_loader, device)
 
         print(f"Epoch {epoch+1}/{epochs} | Loss={avg_loss:.4f} | Train Acc={train_acc:.2f}% | Test Acc={test_acc:.2f}%")
 
