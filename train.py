@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     if te_acc > best_acc:
       best_acc = te_acc
-      torch.save(net.state_dict(), "checkpoint/mobilenetv2_cifar10_baseline.pth")
+      torch.save(net.state_dict(), "mobilenetv2_cifar10_baseline.pth")
 
     scheduler.step()
   
