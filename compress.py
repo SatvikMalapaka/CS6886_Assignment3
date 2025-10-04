@@ -32,7 +32,7 @@ if __name__ == '__main__':
   _, pre_tuning_acc = test(net, test_loader, device)
   print(f"The pre tuning accuracy after pruning is {pre_tuning_acc}")
   print("Fine tuning now......")
-  net = fine_tune(model, device, train_loader, args.fine_tune_epochs, learn_r=0.01)
+  net = fine_tune(net, device, train_loader, args.fine_tune_epochs, learn_r=0.01)
   _, post_tuning_acc = test(net, test_loader, device)
   print(f"Post Pruning accuracy is {post_tuning_acc}")
   compute_sparsity(net)
