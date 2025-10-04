@@ -35,7 +35,7 @@ if __name__ == '__main__':
   net = fine_tune(net, device, train_loader, args.fine_tune_epochs, learn_r=0.01)
   _, post_tuning_acc = test(net, test_loader, device)
   print(f"Post Pruning accuracy is {post_tuning_acc}")
-  compute_sparsity(net)
+  spars = compute_sparsity(net)
 
   #Weight Quantisation
   layer_avg_sensitivities = layer_sensitivities(net)
