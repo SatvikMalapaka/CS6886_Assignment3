@@ -229,3 +229,60 @@ def layer_sensitivities(net):
     
     layer_avg_sensitivities = {name: vals.mean().item() for name, vals in layer_sensitivities.items()}
     return layer_avg_sensitivities
+
+
+def quantize_activation(x, num_bits=4, eps=1e-6):
+    qmin, qmax = 0, (1 << num_bits) - 1
+
+    x_clamped = torch.clamp(x, min=eps)
+    min_val = x_clamped.amin(dim=(0, 2, 3), keepdim=True)
+    max_val = x_clamped.amax(dim=(0, 2, 3), keepdim=True)
+
+    log_min = torch.log(min_val)
+    log_max = torch.log(max_val)
+
+    scale = (log_max - log_min) / (qmax - qmin)
+    scale = torch.where(scale == 0, torch.ones_like(scale), scale)
+
+    q_x = torch.round((torch.log(x_clamped) - log_min) / scale).clamp(qmin, qmax)
+    dq_x = torch.exp(q_x * scale + log_min)
+    return dq_x
+
+
+class QuantizedReLU6(nn.Module):
+    def __init__(self, relu6_module, num_bits=4):
+        """
+        Wrap an existing ReLU6 module to quantize its output.
+        Keep reference to original for undoing.
+        """
+        super().__init__()
+        assert isinstance(relu6_module, nn.ReLU6)
+        self.orig_module = relu6_module  # store original for undo
+        self.num_bits = num_bits
+
+    def forward(self, x):
+        x = self.orig_module(x)
+        x = quantize_activation(x, self.num_bits)
+        return x
+
+
+def replace_relu6_with_quantized(module, num_bits=4):
+    """
+    Recursively replace ReLU6 with QuantizedReLU6 in a module.
+    """
+    for name, child in module.named_children():
+        if isinstance(child, nn.ReLU6):
+            setattr(module, name, QuantizedReLU6(child, num_bits=num_bits))
+        else:
+            replace_relu6_with_quantized(child, num_bits)
+
+
+def undo_quantized_relu6(module):
+    """
+    Recursively restore original ReLU6 modules from QuantizedReLU6 wrappers.
+    """
+    for name, child in module.named_children():
+        if isinstance(child, QuantizedReLU6):
+            setattr(module, name, child.orig_module)
+        else:
+            undo_quantized_relu6(child)
