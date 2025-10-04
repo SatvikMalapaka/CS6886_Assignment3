@@ -64,3 +64,61 @@ def test(net, test_loader, device = device, criterion = None, epoch=None):
     else:
       print(f"Test Acc: {acc:.2f}%")
     return avg_loss, acc
+
+import numpy as np
+
+def compute_model_size(model, bitwidth_map, include_mask=True, activation_bits=8):
+    orig_weight_bits = 0
+    compressed_weight_bits = 0
+    overhead_bits = 0
+
+    for name, module in model.named_modules():
+        if isinstance(module, (QuantizedPrunedConv2d, QuantizedLinear)):
+            # original FP32 weights
+            W = module.weight_fp.data
+            orig_weight_bits += W.numel() * 32
+
+            if hasattr(mod, "mask"):
+                mask = mod.mask.detach().cpu()
+                # broadcast mask to same numel as weight if necessary
+                try:
+                    active = (mask != 0).sum().item()
+                except Exception:
+                    active = (mask.view(-1) != 0).sum().item()
+                compressed_weight_bits = active * quant_bits_map.get(name, default_bits)
+            else:
+                compressed_weight_bits = w_num * quant_bits_map.get(name, default_bits)
+
+            comp_bits += compressed_weight_bits
+
+            if module.bias_fp is not None:
+                overhead_bits += module.bias.numel() * 32
+
+            # quantization parameters: scale + zero-point (per channel)
+            if isinstance(module, QuantizedPrunedConv2d):
+                n_channels = module.out_channels
+            else:
+                n_channels = module.out_features
+            overhead_bits += n_channels * 2 * 32  # scale + zero-point
+
+        elif isinstance(module, nn.BatchNorm2d):
+            # gamma, beta, running_mean, running_var → 4 params per channel
+            n_channels = module.num_features
+            overhead_bits += n_channels * 4 * 32
+
+    # Final sizes in MB
+    orig_MB = orig_weight_bits / 8 / (1024**2)
+    compressed_MB = (compressed_weight_bits + overhead_bits) / 8 / (1024**2)
+
+    # Compression ratios
+    compression_weights = orig_weight_bits / compressed_weight_bits
+    compression_total = orig_weight_bits / (compressed_weight_bits + overhead_bits)
+
+    return {
+        "Original size (MB)": orig_MB,
+        "Compressed size (MB)": compressed_MB,
+        "Weight compression ratio": compression_weights,
+        "Final compression ratio (with overheads)": compression_total,
+        "Overhead bits": overhead_bits,
+        "Activation quant params overhead bits": act_overhead_bits
+    }
